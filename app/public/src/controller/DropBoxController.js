@@ -8,14 +8,16 @@ class DropBoxController {
         this.nameFileEl = document.querySelector('.filename');
         this.timeLeftEl = document.querySelector('.timeleft');
         this.progressBar = this.snackModalEl.querySelector('.mc-progress-bar-fg');
+        this.listFilesEl = document.querySelector('#list-of-files-and-directories');
 
         this.connectFirebase();
         this.initEvents();
+        this.readFiles();
 
     }
 
     connectFirebase() {
-            var firebaseConfig = {
+        var firebaseConfig = {
             apiKey: "AIzaSyBIG76mw43fiZTrMQ8Hs8sZtupIJN2RaJE",
             authDomain: "drop-clone-project.firebaseapp.com",
             databaseURL: "https://drop-clone-project.firebaseio.com",
@@ -39,29 +41,44 @@ class DropBoxController {
 
         this.inputFilesEl.addEventListener('change', event => {
 
+            this.btnSendFileEl.disabled = true;
+
             this.uploadTask(event.target.files).then(responses => {
 
                 responses.forEach(resp => {
 
-                    console.log(resp.files['input-file']);
+                    //console.log(resp.files['input-file']);
 
-                    this.getFireBaseRef().push().set(resp.files['input-file']);
+                    this.getFirebaseRef().push().set(resp.files['input-file']);
                 });
 
-                this.modalShow(false);
+                this.uploadComplete();
+
+            }).catch(err => {
+
+                this.uploadComplete();
+                console.log(err);
 
             });
 
             this.modalShow();
 
-            this.inputFilesEl.value = '';
-
         });
     }
 
-    getFireBaseRef() {
-        
+    uploadComplete() {
+
+        this.modalShow(false);
+        this.inputFilesEl.value = '';
+        this.btnSendFileEl.disabled = false;
+
+
+    }
+
+    getFirebaseRef() {
+
         return firebase.database().ref('files');
+
     }
 
     modalShow(show = true) {
@@ -328,15 +345,83 @@ class DropBoxController {
         }
     }
 
-    getFileView(file) {
+    getFileView(file, key) {
 
-        return `
+        let li = document.createElement('li');
+
+        li.dataset.key = key;
+
+        li.innerHTML = `
             <li>
-                $this.getFileIconView(file)}
-                <div class="name text-center">Meus Documentos</div>
-            </li>
-        
+                ${this.getFileIconView(file)}
+                <div class="name text-center">${file.name}</div>
+            </li>   
         `
+
+        this.initEventsLi(li);
+
+        return li;
     }
 
+    initEventsLi(li) {
+
+        li.addEventListener('click', e => {
+
+            if (e.shiftKey) {
+
+                let firstLi = this.listFilesEl.querySelector('.selected');
+
+                if (firstLi) {
+
+                    let indexStart;
+                    let indexEnd;
+
+                    li.parentElement.childNodes.forEach((el, index) => {
+
+                        if (firstLi === el) indexStart = index;
+                        if (li === el) indexEnd = index;
+
+                    });
+
+                    let index = [indexStart, indexEnd].sort();
+
+                    li.parentElement.childNodes.forEach((el, i) => {
+
+                        if (i >= index[0] && i <= index[1]) {
+
+                            el.classList.add('selected');
+                        }
+                    });
+                    return true;
+                }
+            }
+
+            if (!e.ctrlKey) {
+
+                this.listFilesEl.querySelectorAll('li.selected').forEach(el => {
+                    el.classList.remove('selected');
+                })
+            }
+
+            li.classList.toggle('selected');
+        })
+    }
+
+    readFiles() {
+
+        this.getFirebaseRef().on('value', snapshot => {
+
+            this.listFilesEl.innerHTML = '';
+
+            snapshot.forEach(snapshotItem => {
+
+                let key = snapshotItem.key;
+                let data = snapshotItem.val();
+
+                this.listFilesEl.appendChild(this.getFileView(data, key));
+
+            });
+
+        });
+    }
 }
