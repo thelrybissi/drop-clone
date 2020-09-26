@@ -1,6 +1,9 @@
 class DropBoxController {
 
     constructor() {
+
+        this.onselectionchange = new Event('selectionchange');
+
         //Atributos para resgate de valores de campos em HTML pelo ID ou Classe
         this.btnSendFileEl = document.querySelector('#btn-send-file');
         this.inputFilesEl = document.querySelector('#files');
@@ -9,6 +12,10 @@ class DropBoxController {
         this.timeLeftEl = document.querySelector('.timeleft');
         this.progressBar = this.snackModalEl.querySelector('.mc-progress-bar-fg');
         this.listFilesEl = document.querySelector('#list-of-files-and-directories');
+
+        this.btnNewFolderEl = document.querySelector('#btn-new-folder');
+        this.btnRenameEl = document.querySelector('#btn-rename');
+        this.btnDeleteEl = document.querySelector('#btn-delete');
 
         this.connectFirebase();
         this.initEvents();
@@ -30,8 +37,50 @@ class DropBoxController {
         firebase.initializeApp(firebaseConfig);
     }
 
+    getSelection() {
+
+        return this.listFilesEl.querySelectorAll('.selected');
+    }
+
     //Inicia os Eventos da pagina
     initEvents() {
+
+        this.btnRenameEl.addEventListener('click', e=> {
+
+            let li = this.getSelection()[0];
+
+            let file = JSON.parse(li.dataset.file);
+
+            let name = prompt('Renomear o arquivo:', file.name);
+
+            if (name) {
+
+                file.name = name;
+
+                this.getFirebaseRef().child(li.dataset.key).set(file)
+            }
+        })
+
+        this.listFilesEl.addEventListener('selectionchange', e => {
+
+            switch (this.getSelection().length) {
+
+                case 0:
+                    this.btnDeleteEl.style.display = 'none';
+                    this.btnRenameEl.style.display = 'none';
+                    break;
+
+                case 1:
+                    this.btnDeleteEl.style.display = 'block';
+                    this.btnRenameEl.style.display = 'block';
+                    break;
+
+                default:
+                    this.btnDeleteEl.style.display = 'block';
+                    this.btnRenameEl.style.display = 'none';
+            }
+
+        });
 
         this.btnSendFileEl.addEventListener('click', event => {
 
@@ -46,8 +95,6 @@ class DropBoxController {
             this.uploadTask(event.target.files).then(responses => {
 
                 responses.forEach(resp => {
-
-                    //console.log(resp.files['input-file']);
 
                     this.getFirebaseRef().push().set(resp.files['input-file']);
                 });
@@ -350,6 +397,7 @@ class DropBoxController {
         let li = document.createElement('li');
 
         li.dataset.key = key;
+        li.dataset.file = JSON.stringify(file);
 
         li.innerHTML = `
             <li>
@@ -392,6 +440,9 @@ class DropBoxController {
                             el.classList.add('selected');
                         }
                     });
+
+                    this.listFilesEl.dispatchEvent(this.onselectionchange);
+
                     return true;
                 }
             }
@@ -404,6 +455,8 @@ class DropBoxController {
             }
 
             li.classList.toggle('selected');
+
+            this.listFilesEl.dispatchEvent(this.onselectionchange);
         })
     }
 
